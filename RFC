@@ -1,0 +1,560 @@
+ 
+
+
+
+INTERNET-DRAFT                    <Aarab, Dos Santos, Ouldrabrah, Soler>
+Intended Status: <Status, e.g.Proposed Standard>  Universite Jean Jaures
+Expires: <Expiry Date>                                      <Issue Date>
+
+                            SpaceX Protocol
+
+
+Abstract
+
+   This document is dedicated to the people who would implement a SpaceX
+   server or client.
+
+
+Status of this Memo
+
+   This memo describes the SpaceX protocol, which allows clients to
+   connect to SpaceX server and to SpaceX server to discuss with its
+   clients through a TCP connection.
+
+
+
+Table of Contents
+
+   1  Introduction  . . . . . . . . . . . . . . . . . . . . . . . . .  1
+     1.1  Glossary  . . . . . . . . . . . . . . . . . . . . . . . . .  1
+   2.  The SpaceX Specifications  . . . . . . . . . . . . . . . . . .  2
+   3  Command details . . . . . . . . . . . . . . . . . . . . . . . .  4
+
+
+1  Introduction
+
+   SpaceX is a protocol built on the top of TCP. It allow several
+   clients to connect and to dialogue with clients through a common
+   server.
+
+1.1  Glossary
+
+      	Client
+
+            A client is all process that can establish a connection with
+            a server. Each client is identified by a unique pseudonym,
+            which has a maximum length of fifteen characters.
+
+      	Message
+
+            In this document, this term is used to describe the content
+            of a socket sent by a client or a server.
+
+ 
+
+
+<Aarab, Dos Santos, Ouldrabah, Soler>                           [Page 1]
+
+INTERNET DRAFT             <SpaceX Protocol>                <22/03/2019>
+
+
+      	Request
+
+            A request is a special message in which the sender asks the
+            server to return a reply.
+
+      	Reply
+
+            A reply is a special message that contains the answer to a
+            request.
+
+      	Server
+
+            Server handle client's requests and forward messages to
+            clients.
+
+2.  The SpaceX Specifications
+
+      	Overview
+
+      	Character encoding
+
+            All messages between servers and clients must be encoded in
+            UTF-8 format.
+
+      	Resources
+
+            There are three resources on the map: iron, silver and gold.
+            When a robot arises on a square, he automatically takes
+            resource so he take points.
+            The iron worth 1 point.
+            The silver worth 2 points.
+            The gold worth 5 points.
+
+       	Map
+
+            The map is a matrix of couple of coordinates which begin to
+            the square zero zero. The first digit is the line and other
+            digit column. The size of the matrice it's 100 by 100.
+
+            Example :
+
+               (0,0)  (0,1)  (0,2)
+               (1,0)  (1,1)  (1,2)
+               (2,0)  (2,1)  (2,2)
+
+
+
+
+ 
+
+
+<Aarab, Dos Santos, Ouldrabah, Soler>                           [Page 2]
+
+INTERNET DRAFT             <SpaceX Protocol>                <22/03/2019>
+
+
+      	Messages
+
+            Both clients and servers can send a message to each other,
+            which may generate a reply.
+
+            In the formats presented below, a parameter surrounded by
+            chevrons (< >) is a variable. A parameter surrounded by
+            brackets ([ ]) is optional. A parameter followed by three
+            suspension points (...) can be specified several times.
+
+            Message format
+
+               The exact format of the request depends on the sender, if
+               it's the client or the server. It is essentially the
+               same, with small differences.
+
+               When a client wants to send a message to a server, it has
+               to respect the following format: <COMMAND> [<argument>
+               ...]
+
+               <COMMAND> refers to an existing command; all commands are
+               described within the "Command details" paragraph. A
+               command can be followed by zero or one argument. Commands
+               and arguments must be separated by a unique space.
+
+               When the server wants to send a message to a client, it
+               follows the same syntax, except that the first element of
+               the request is the pseudonym of the client prefixed by a
+               asterisk (*), as below: *<pseudonym> <COMMAND>
+               [<argument> ...]
+
+               Examples of commands are presented in the next paragraph.
+
+      	Reply format
+
+            Replies' format is the same, no matter the sender is. It is
+            described below: <status_code>
+            [<readbyhuman_readable_message>]
+
+            status_code is a three-digit number who identifies the
+            nature of the answer
+
+            readbyhuman_readable_message is a message that can be read
+            by a human and that describes the reply in more details
+
+            When a message is received, one can easily tell whether it's
+            a reply or a request : if the message starts by a
+            asterisk(*). Otherwise, it's a request .
+ 
+
+
+<Aarab, Dos Santos, Ouldrabah, Soler>                           [Page 3]
+
+INTERNET DRAFT             <SpaceX Protocol>                <22/03/2019>
+
+
+3  Command details
+
+   Possible actions
+
+      CONNECT command
+
+            Command: CONNECT
+            Argument: <pseudonym>
+
+            The first command must be sent to the server in order to
+            login. When a client login, the server must send a copy of
+            the map and the list of others users.
+
+            Restrictions:
+
+               All the restrictions of the NAME command also apply here.
+               Moreover, a client that uses CONNECT must not be already
+               connected. When the client is connected, he receives all
+               users already connected and users who were connected
+               receives the new user. Finally, the user receives a map.
+
+            Possible answers: 
+
+               All the answers of the NICK command.
+               ERR_ALREADYCONNECTED
+
+            Example:
+
+               CONNECT Georges	; a client attempts to log in as Georges
+               200		; this is the server response
+               *Georges CONNECT	; this is sent to the other clients
+               *Anna Arthur	; this is sent to Georges (others clients)
+
+      QUIT command
+
+            Command: QUIT
+            Arguments: no arguments
+
+            End a client session. The client is disconnected and he has
+            not access to the server.
+
+            Restrictions:
+
+               The client must be connected on the server.
+
+            Possible answers:
+
+               ERR_NOT_CONNECTED
+ 
+
+
+<Aarab, Dos Santos, Ouldrabah, Soler>                           [Page 4]
+
+INTERNET DRAFT             <SpaceX Protocol>                <22/03/2019>
+
+
+            Example:
+
+               QUIT		; client Anna wants to end the connection
+               200		; server reply
+               *Anna QUIT	; this is sent to Anna
+
+      CREATE_ROBOT command
+
+            Command: CREATE_ROBOT
+            Arguments: <line> <row>
+
+            The client creates a robot and gives this position.
+
+            Restrictions:
+
+               The client must be connected and does not have created
+               already a robot. When the robot is created, the client
+               can move it.
+
+            Possible answers:
+
+               ERR_NOT_CONNECTED
+               ERR_ALREADY_CREATED
+
+               CREATE_ROBOT 4 3		; create and add a robot on the map 
+               203			; server reply
+               *Anna CREATE_ROBOT	; this is sent to Anna
+
+      MOVE_ROBOT command
+
+            Command: MOVE_ROBOT
+            Arguments: <line> <row>
+
+            The client moves the robot in a square.
+
+            Restrictions:
+
+               When the Robot moves in the new square, the square must
+               be empty. The refresh of the map is automatic
+
+            Possible answers:
+
+               ERR_SQUARETAKEN ERR_SQUARENOTFOUND
+
+
+
+
+
+ 
+
+
+<Aarab, Dos Santos, Ouldrabah, Soler>                           [Page 5]
+
+INTERNET DRAFT             <SpaceX Protocol>                <22/03/2019>
+
+
+            Example:
+
+            MOVE_ROBOT 4 3		; robot moves in the square (4,3)
+            203				; server reply
+            *Anna MOVE_ROBOT		; this is sent to Anna
+
+      PAUSE_ROBOT command
+
+            Command: PAUSE_ROBOT
+            Arguments: no arguments
+
+            The client puts in break his robot and stay connected.
+
+            Restrictions:
+
+               ROBOT_DESACTIVED
+               ERR_NOTCONNECTED	
+               ERR_BADSTATUS
+
+            Example:
+            PAUSE_ROBOT		; put in pause the robot
+            402			; error: the robot was already broken
+
+      RESUME_ROBOT command
+
+            Command: RESUME_ROBOT
+            Arguments : no arguments
+
+            This command cancels the effect of the ROBOT_PAUSE command.
+            Specifies that the robot is active again.
+
+            Restrictions:
+
+               The client needs to have created a robot.
+
+            Possible answers:
+
+               ROBOT_ACTIVE
+               ERR_NOTCONNECTED
+               ERR_BADSTATUS
+
+            Example:
+
+               RESUME_ROBOT		; Anna asks to come back
+               200			; error: the robot was not away
+               *Anna RESUME_ROBOT	; received by Anna
+
+
+ 
+
+
+<Aarab, Dos Santos, Ouldrabah, Soler>                           [Page 6]
+
+INTERNET DRAFT             <SpaceX Protocol>                <22/03/2019>
+
+
+   Client status management
+
+      NICK command
+
+            Command: NICK
+            Argument: <pseudonym>
+
+            Changes the current pseudonym of the client to <pseudonym>.
+
+            Restrictions:
+
+               The maximum length of the pseudonym is fifteen
+               characters. Moreover, the name cannot contain particular
+               characters
+
+            Possible answers:
+
+               ERR_NOTCONNECTED
+               ERR_NOTENOUGHARGS
+               ERR_NICKNAMEINUSE
+               ERR_INVALIDNICKNAME
+               RPL_DONE
+
+            Example:
+
+               NICK Orange		; client asks to be renamed as Orange
+               200			; answer from the server
+               *Georges NICK Orange	; received by other clients
+
+   Operations on server
+
+      LIST command
+
+            Command: LIST
+            Arguments: no arguments
+
+            Asks the list of clients and resources to the server. The
+            associated response returns the pseudonyms et the resources
+            separated by a colon (:). The list format is: <pseudonym> :
+            <points> and a line break.
+
+            Possible answers:
+
+               RPL_NAMES
+               ERR_NOTCONNECTED
+
+
+
+ 
+
+
+<Aarab, Dos Santos, Ouldrabah, Soler>                           [Page 7]
+
+INTERNET DRAFT             <SpaceX Protocol>                <22/03/2019>
+
+
+            Example:
+
+               LIST				; the client asks others names and resources
+               201				; answer from the server
+               *Georges : 5 Arthur : 2		; received by the client
+
+      TRANSFERT command
+
+            Command: TRANSFERT
+            Arguments: <pseudonym> <port>
+
+            Asks the text file of the client describing the strategy
+            uses by his robot. If the transfert is accepted, it starts
+            automatically with TCP connection. The file must be
+            considered as binary.
+
+            Possible answers:
+
+               ERR_NOTCONNECTED
+
+            Example:
+
+               TRANSFERT Georges 8000	 	; Anna gives name and port
+               200				; answer from the server
+               *Anna wants your strategy     	; received by Georges
+               ACCEPT strategy.txt		; Georges answer yes
+               200				; answer from the client who wants strategy
+
+      ACCEPT command
+
+            Command: ACCEPT
+            Argument: <strategy>
+
+            Give a positive response and the strategy to the client who
+            want our information by using the transfert command.
+            Example:
+
+               ACCEPT strategy.txt	; send a strategy to a client
+               200			; answer from the client who wants the strategy
+
+      REFUSE command
+
+            Command: REFUSE
+            Argument: no argument
+
+            Give a negative response to the client who want our
+            information by using the transfert command.
+            Example:
+ 
+
+
+<Aarab, Dos Santos, Ouldrabah, Soler>                           [Page 8]
+
+INTERNET DRAFT             <SpaceX Protocol>                <22/03/2019>
+
+
+               REFUSE			; send a negative response to a client
+               200			; answer from the client who wants the strategy
+
+   Responses
+
+      Status codes
+
+            A status code is a three-digit number that indicates the
+            nature of the response.
+
+            The first digit corresponds with the class of the response.
+            The latter two identify the precise answer. The available
+            classes are the following:
+
+            - 2xx (Successful): The request was successfully received,
+            understood and processed.
+
+            - 4xx (Error): The request contains wrong syntax or cannot
+            be fulfilled.
+
+      Error messages
+
+            This paragraph presents all the error messages, and their
+            corresponding status code as well.
+
+               Code:	Status name:		Explanation:
+
+               400	ERR_ALREADYCONNECTED	The client is already connected
+               401	ERR_NOTCONNECTED	The client is not connected
+               402	ERR_BADSTATUS		The robot was not away
+               403	ERR_NOTENOUGHARS	The request has not enough
+               404	ERR_NICKNAMENOTEXIST	Nickname does not exist
+               405	ERR_NICKNAMEINUSE	Nickname is already used
+               406	ERR_SQUARETAKEN		It already taken by another robot
+               407	ERR_SQUARENOTFOUND	The square does not exist
+               408	ERR_INVALIDNICKNAME	The nickname is to long (max 15)
+
+      Command replies
+
+            This paragraph displays all the possible answers to a
+            successful request.
+
+               Code:	Status name:		Explanation:
+
+               200	RPL_DONE		Success		
+               201	ROBOT_NAMES		Returns a list of pseudo
+               202	ROBOT_CREATED		Create a new robot			
+               203	MOVE_ROBOT		Robot has moved
+ 
+
+
+<Aarab, Dos Santos, Ouldrabah, Soler>                           [Page 9]
+
+INTERNET DRAFT             <SpaceX Protocol>                <22/03/2019>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<Aarab, Dos Santos, Ouldrabah, Soler>                          [Page 10]
