@@ -21,6 +21,7 @@ while True :
 
                 print('Reception...')
                 donnees = client.recv(1024)
+                print(donnees)
                 print('Recu :', donnees.decode())
         except KeyboardInterrupt:
                 break
