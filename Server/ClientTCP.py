@@ -20,7 +20,7 @@ while True :
                         print('Envoi ok.')
 
                 print('Reception...')
-                donnees = client.recv(1024)
+                donnees = client.recv(2048)
                 print(donnees)
                 print('Recu :', donnees.decode())
         except KeyboardInterrupt:
