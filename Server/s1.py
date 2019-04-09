@@ -37,14 +37,14 @@ def traiter_client(sock_client):
     informationClient = ""
     deconnexion = False
     score = 0
-    enPause = True
+    enPause = ""
     message = ""
 
     while deconnexion != True:
         try :
             messageC = sock_client.recv(1024)
             messageC = messageC.decode()
-            requete = re.compile(r"^(?P<command>[A-Z]+)(?P<variable>\s[a-zA-Z0-9]*)(?P<variable2>\s[a-zA-Z0-9]*)?")
+            requete = re.compile(r"^(?P<command>[A-Z]+)(?P<variable>\s[a-zA-Z0-9]*)(?P<coord>\s[a-zA-Z0-9]*)?")
             match = re.match(requete, messageC)
             if (match is not None):
                 if(match.group("command") == "CONNECT"):
@@ -54,14 +54,17 @@ def traiter_client(sock_client):
                     deconnexion, isconnected, message = quitter(sock_client, pseudo, isconnected, liste, message)
 
                 elif(match.group("command") == "CREATEROBOT"):
-                    isCreateRobot, enPause, message = creerRobot(sock_client, match.group("variable"), match.group("variable2"), pseudo, isconnected, isCreateRobot, carteInfo, score, enPause, message)
+                    isCreateRobot, enPause, message = creerRobot(sock_client, match.group("coord"), match.group("coord"), pseudo, isconnected, isCreateRobot, carteInfo, score, enPause, message)
                 
                 elif(match.group("command") == "MOVEROBOT"):
-                    pass
+                    message = bougerRobot(sock_client,  match.group("coord"),  match.group("coord"), isconnected, isCreateRobot, pseudo, enPause, score, liste, message)
                 
                 elif(match.group("command") == "PAUSEROBOT"):
-                    enPause, message = pauseRobot(sock_client, isconnected, enPause, pseudo, message)
+                    enPause, message = pauseRobot(sock_client, isconnected, enPause, pseudo, isCreateRobot, message)
                 
+                elif(match.group("command") == "RESUMEROBOT"):
+                    enPause, message = retirerPauseRobot(sock_client, isconnected, isCreateRobot, enPause, pseudo, message)
+
                 elif(match.group("command") == "LIST"):
                     message = listerInfo(sock_client,isconnected,liste,message)
 
@@ -76,7 +79,7 @@ def traiter_client(sock_client):
             break
 
 
-def connecter(sock_client, pseudo, isconnected, liste, message,carteInfo):
+def connecter(sock_client, pseudo, isconnected, liste, message, carteInfo):
     request = re.compile(r"^(?P<pseudo>[a-zA-Z0-9]{1,15})?")
     matchReq = re.match(request,pseudo)
 
@@ -84,22 +87,18 @@ def connecter(sock_client, pseudo, isconnected, liste, message,carteInfo):
         if name[0] == pseudo:
             answer = "405" #ERR_NICKNAMEINUSE : Nickname is already used
             message += answer
-            #sock_client.send((answer+'\n').encode())
-            #break
+            
     if message != "405":
         if (pseudo is None):
             answer = "403" #ERR_NOTENOUGHARS : The request has not enough
-            #sock_client.send((answer+'\n').encode()).
             message += answer
 
         elif (matchReq is None):
             answer = "408" #ERR_INVALIDNICKNAME : The nickname is to long (max 15)
-            #sock_client.send((answer+'\n').encode())
             message += answer
         
         elif isconnected == True:
             answer = "400" #ERR_ALREADYCONNECTED : The client is already connected
-            #sock_client.send((answer+'\n').encode())
             message += answer
         
         else:
@@ -109,8 +108,15 @@ def connecter(sock_client, pseudo, isconnected, liste, message,carteInfo):
             for name in liste:
                 informationAllClient += name[0] + " "
             liste.append((pseudo,""))
+
+            coordRobot = ""
+            for clef, value in carteInfo.items():
+                if value[1] != '0':
+                    coordRobot += str(clef[0]) + ","+str(clef[1])+","
+
             isconnected = True
-            message += answer+'\n'+informationClient+'\n'+informationAllClient+'\n'+str(carteInfo)
+
+            message += answer+'\n'+informationClient+'\n'+informationAllClient+'\n'+coordRobot+'\n'+str(carteInfo)
         
     return isconnected, pseudo, message
 
@@ -172,11 +178,61 @@ def creerRobot(sock_client, ligne, colonne, pseudo, isconnected, isCreateRobot, 
 
     return isCreateRobot, enPause, message
 
-def bougerRobot():
-    pass
+def bougerRobot(sock_client, variable, variable2, isconnected, isCreateRobot, pseudo, enPause, score, liste, message):
+    find = 0
+    if(isconnected == False):
+        answer = "401" #ERR_NOTCONNECTED : The client is not connected
+        message += answer
+   
+    elif(isCreateRobot == False):
+        answer = "409" #ROBOT_DESACTIVED : The client must have already created a robot
+        message += answer
+    
+    elif(enPause == True):
+        answer = "402" #ERR_BADSTATUS : The robot was not away
+        message += answer
+    else:
+        answer = "203" #MOVE_ROBOT : Robot has moved
+        coord = (int(variable), int(variable2))
 
-def pauseRobot(sock_client, isconnected, enPause, pseudo, message):
-    if enPause == True:
+        # Sert à modifier le score du client car gain de score ou non
+        for clef, value in carteInfo.items():
+            if(value[1] == pseudo):
+                if ((coord[0] - clef[0] <= 1) and (coord[0] - clef[0] >= -1) and (coord[1] - clef[1] <= 1) and (coord[1] - clef[1] >= -1)):
+                    res = value[0]
+                    carteInfo[clef] = (res, "0")
+                    for clef, value in carteInfo.items():
+                        if (clef == coord):
+                            find += 1
+                            if(value[1] != "0"):
+                                answer = "406" #ERR_SQUARETAKEN : It already taken by another robot
+                                message += answer
+                            else:
+                                score += value[0]
+                                carteInfo[clef] = (0, pseudo)
+                                for name in liste:
+                                    if name[0] ==  pseudo:
+                                        name2 = (pseudo, score)
+                                        liste.remove(name)
+                                        liste.append(name2)
+                                informationClient = ""
+                                for clef, value in carteInfo.items():
+                                    if value[1] != '0':
+                                        informationClient += str(clef[0]) + ","+str(clef[1])+","
+                                message += answer+'\n'+informationClient
+
+        if(find == 0):
+            answer = "407" #ERR_SQUARENOTFOUND : The square does not exist
+            message += answer
+        print(carteInfo)
+    return message
+
+def pauseRobot(sock_client, isconnected, enPause, pseudo, isCreateRobot, message):
+    if isCreateRobot == False:
+        answer = "409" #ROBOT_DESACTIVED : The robot it's not created
+        message += answer
+
+    elif enPause == True:
         answer = "402" #ERR_BADSTATUS : The robot was not away
         message += answer
 
@@ -188,18 +244,23 @@ def pauseRobot(sock_client, isconnected, enPause, pseudo, message):
         answer = "200" #RPL_DONE : Success
         informationClient = "*" + pseudo + " PAUSE"
         message += answer+'\n'+informationClient
+        enPause = True
+        
 
     return enPause, message
 
-def retirerPauseRobot(sock_client, isconnected, enPause, pseudo, message):
-    if enPause == False:
+def retirerPauseRobot(sock_client, isconnected, isCreateRobot, enPause, pseudo, message):
+
+    if isCreateRobot == False:
+        answer = "409" #ROBOT_DESACTIVED : The robot it's not created
+        message += answer
+
+    elif enPause == False:
         answer = "402" #ERR_BADSTATUS : The robot was not away
-        #sock_client.send((answer+'\n').encode())
         message += answer
 
     elif isconnected == False:
         answer = "401" #ERR_NOTCONNECTED : The client is not connected
-        #sock_client.send((answer+'\n').encode())
         message += answer
 
     else:
@@ -207,11 +268,13 @@ def retirerPauseRobot(sock_client, isconnected, enPause, pseudo, message):
         informationClient = "*" + pseudo + " PAUSE"
         #sock_client.send((answer+'\n'+informationClient+'\n').encode())
         message += answer+'\n'+informationClient+'\n'
+        enPause = False
 
     return enPause, message
 
 def listerInfo(sock_client, isconnected, liste, message):
     if isconnected == True:
+        print("nnonn")
         answer = "201" #ROBOT_NAMES : Returns a list of pseudo
         info = "*"
         for informations in liste:
