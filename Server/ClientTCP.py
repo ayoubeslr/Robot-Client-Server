@@ -1,7 +1,7 @@
 import socket
 import sys
 
-HOST = 'localhost'
+HOST = "192.168.43.71"
 PORT = int(sys.argv[1])
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

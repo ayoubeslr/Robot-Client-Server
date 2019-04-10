@@ -7,14 +7,14 @@ import random
 from time import gmtime, strftime
 import datetime
 
-config = []
-with open("spaceXserver.conf", 'r') as f:
+# config = []
+# with open("spaceXserver.conf", 'r') as f:
 
-    for line in f:
-        config.append(line[:-1])
+#     for line in f:
+#         config.append(line[:-1])
 
 socket_server = socket(AF_INET, SOCK_STREAM)
-socket_server.bind(('localhost', int(sys.argv[1])))
+socket_server.bind(("", int(sys.argv[1])))
 socket_server.listen(4)
 
 # with open(config[2], 'a') as f:
@@ -57,12 +57,17 @@ def traiter_client(sock_client, adr_client):
         try :
             messageC = sock_client.recv(1024)
             messageC = messageC.decode()
-            with open("historique.txt", 'a') as f:
-                now = strftime("%Y/%m/%d %H:%M:%S", gmtime())
-                f.write(f"{now}"+messageC + " from " + str(adr_client[0])+":"+str(adr_client[1])+'\n')
+
+            #Ecriture et trace des connexions/commandes faite au serveur (fonctionnel mais boucle de l'écriture dans le fichier)
+            
+            # with open("historique.txt", 'a') as f:
+            #     now = strftime("%Y/%m/%d %H:%M:%S", gmtime())
+            #     f.write(f"{now}"+messageC + " from " + str(adr_client[0])+":"+str(adr_client[1])+'\n')
 
             requete = re.compile(r"^(?P<command>[A-Z]+)(?P<variable>\s[a-zA-Z0-9]*)?")
             match = re.match(requete, messageC)
+
+            #Traitements des commandes et vérification de la bonne écriture
             if (match is not None):
                 if(match.group("command") == "CONNECT"):
                     isconnected, pseudo, message = connecter(sock_client,match.group("variable"), isconnected, liste, message, carteInfo)
@@ -90,14 +95,14 @@ def traiter_client(sock_client, adr_client):
                 
                 else:
                     message += "Erreur"
-            #message += '\n'
             
+            #Envoie de la socket avec les données à envoyer au client en réponse de sa requête
             sock_client.send(message.encode())
             message = ""
         except KeyboardInterrupt:
             break
 
-
+# Permet de connecter un joueur
 def connecter(sock_client, pseudo, isconnected, liste, message, carteInfo):
     request = re.compile(r"^(?P<pseudo>\s[a-zA-Z0-9]{1,15})?")
     matchReq = re.match(request,pseudo)
@@ -140,6 +145,7 @@ def connecter(sock_client, pseudo, isconnected, liste, message, carteInfo):
         
     return isconnected, pseudo, message
 
+#Permet de mettre en pause un robot déjà existant
 def pauseRobot(sock_client, isconnected, enPause, pseudo, message):
     # Client must not be disconnected
     if(isconnected == False):
@@ -156,6 +162,7 @@ def pauseRobot(sock_client, isconnected, enPause, pseudo, message):
         message += answer+'\n'+informationClient
     return enPause, message
 
+#Permet de déconnecter un client 
 def quitter(sock_client, pseudo, isconnected, liste, message):
     if isconnected == True:
         isconnected == False
@@ -175,6 +182,7 @@ def quitter(sock_client, pseudo, isconnected, liste, message):
 
     return deconnexion, isconnected, message
 
+#Permet de créer un robot à une coordonnée donnée
 def creerRobot(sock_client, ligne, colonne, pseudo, isconnected, isCreateRobot, carteInfo, score, enPause, message):
     coordonnee = (int(ligne),int(colonne))
     if (int(ligne) > 5 or int(colonne )> 5 or int(ligne) < 0 or int(colonne) < 0):
@@ -215,6 +223,7 @@ def creerRobot(sock_client, ligne, colonne, pseudo, isconnected, isCreateRobot, 
 
     return isCreateRobot, enPause, message
 
+#Permet de bouger un robot (non-fonctionnel)
 def bougerRobot(sock_client, variable, variable2, isconnected, isCreateRobot, pseudo, enPause, score, liste, message):
     find = 0
     if(isconnected == False):
@@ -264,6 +273,7 @@ def bougerRobot(sock_client, variable, variable2, isconnected, isCreateRobot, ps
         print(carteInfo)
     return message
 
+#Permet de retirer l'état pause au robot
 def retirerPauseRobot(sock_client, isconnected, isCreateRobot, enPause, pseudo, message):
 
     if isCreateRobot == False:
@@ -287,6 +297,7 @@ def retirerPauseRobot(sock_client, isconnected, isCreateRobot, enPause, pseudo, 
 
     return enPause, message
 
+#Permet de Rrenvoyer la liste des (pseudo,score) de chaque joueur
 def listerInfo(sock_client, isconnected, liste, message):
     if isconnected == True:
         answer = "201" #ROBOT_NAMES : Returns a list of pseudo
@@ -301,6 +312,7 @@ def listerInfo(sock_client, isconnected, liste, message):
     
     return message
 
+#Permet de changer de pseudo
 def changerPseudo(sock_client, isconnected, pseudo, liste, nouveauPseudo,message):
     request = re.compile(r"^(?P<pseudo>[a-zA-Z0-9]{1,15})?")
     matchReq = re.match(request,nouveauPseudo)
@@ -346,8 +358,10 @@ def changerPseudo(sock_client, isconnected, pseudo, liste, nouveauPseudo,message
     
     return message
 
+#Initialise la carte avec les ressources répartient sur la carte "aléatoirement"
 initialiserCarte()
 
+#Créer un thread indépendant pour chaque nouvelle connexion au serveur
 while True:
     try:
         sock_client, adr_client = socket_server.accept()
