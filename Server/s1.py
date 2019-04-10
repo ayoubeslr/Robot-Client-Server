@@ -77,7 +77,7 @@ def traiter_client(sock_client, adr_client):
                     message = bougerRobot(sock_client,  match.group("variable"),  match.group("variable"), isconnected, isCreateRobot, pseudo, enPause, score, liste, message)
                     print(carteInfo)
                 elif(match.group("command") == "PAUSEROBOT"):
-                    enPause, message = pauseRobot(sock_client, isconnected, enPause, pseudo, isCreateRobot, message)
+                    enPause, message = pauseRobot(sock_client, isconnected, enPause, pseudo, message)
                 
                 elif(match.group("command") == "RESUMEROBOT"):
                     enPause, message = retirerPauseRobot(sock_client, isconnected, isCreateRobot, enPause, pseudo, message)
@@ -139,6 +139,22 @@ def connecter(sock_client, pseudo, isconnected, liste, message, carteInfo):
             message += answer+'\n'+informationClient+'\n'+informationAllClient+'\n'+coordRobot+'\n'+str(carteInfo)
         
     return isconnected, pseudo, message
+
+def pauseRobot(sock_client, isconnected, enPause, pseudo, message):
+    # Client must not be disconnected
+    if(isconnected == False):
+        answer = "401"
+        sock_client.send(answer.encode())
+    # The robot should not be paused
+    elif(enPause == True):
+        answer = "402"
+        message += answer
+    else:
+        enPause = True
+        answer = "203"
+        informationClient = "*" + pseudo + " PAUSE ROBOT"
+        message += answer+'\n'+informationClient
+    return enPause, message
 
 def quitter(sock_client, pseudo, isconnected, liste, message):
     if isconnected == True:
