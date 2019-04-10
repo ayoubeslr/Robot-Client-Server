@@ -4,10 +4,23 @@ import socket
 import sys
 from socket import *
 import random
+from time import gmtime, strftime
+import datetime
+
+config = []
+with open("spaceXserver.conf", 'r') as f:
+
+    for line in f:
+        config.append(line[:-1])
 
 socket_server = socket(AF_INET, SOCK_STREAM)
 socket_server.bind(('localhost', int(sys.argv[1])))
 socket_server.listen(4)
+
+# with open(config[2], 'a') as f:
+#     now = strftime("%Y/%m/%d %H:%M:%S", gmtime())
+#     f.write(f"{now}"+" Serveur started\n")
+#     f.write(f"{now}"+" Listen on :"+config[0]+"\n")
 
 liste = []
 carteInfo = {}
@@ -28,7 +41,7 @@ if len(sys.argv) != 3:
     sys.exit(1)
 
 
-def traiter_client(sock_client):
+def traiter_client(sock_client, adr_client):
     isconnected = False
     isCreateRobot = False
     pseudo = ""
@@ -44,6 +57,10 @@ def traiter_client(sock_client):
         try :
             messageC = sock_client.recv(1024)
             messageC = messageC.decode()
+            with open("historique.txt", 'a') as f:
+                now = strftime("%Y/%m/%d %H:%M:%S", gmtime())
+                f.write(f"{now}"+messageC + " from " + str(adr_client[0])+":"+str(adr_client[1])+'\n')
+
             requete = re.compile(r"^(?P<command>[A-Z]+)(?P<variable>\s[a-zA-Z0-9]*)?")
             match = re.match(requete, messageC)
             if (match is not None):
@@ -55,10 +72,10 @@ def traiter_client(sock_client):
 
                 elif(match.group("command") == "CREATEROBOT"):
                     isCreateRobot, enPause, message = creerRobot(sock_client, match.group("variable"), match.group("variable"), pseudo, isconnected, isCreateRobot, carteInfo, score, enPause, message)
-                
+                    print(carteInfo)
                 elif(match.group("command") == "MOVEROBOT"):
                     message = bougerRobot(sock_client,  match.group("variable"),  match.group("variable"), isconnected, isCreateRobot, pseudo, enPause, score, liste, message)
-                
+                    print(carteInfo)
                 elif(match.group("command") == "PAUSEROBOT"):
                     enPause, message = pauseRobot(sock_client, isconnected, enPause, pseudo, isCreateRobot, message)
                 
@@ -70,9 +87,11 @@ def traiter_client(sock_client):
 
                 elif(match.group("command") == "NICK"):
                     message = changerPseudo(sock_client, isconnected, pseudo, liste, match.group("variable"), message)
-
-            message += '\n'
-            print(carteInfo)
+                
+                else:
+                    message += "Erreur"
+            #message += '\n'
+            
             sock_client.send(message.encode())
             message = ""
         except KeyboardInterrupt:
@@ -141,18 +160,16 @@ def quitter(sock_client, pseudo, isconnected, liste, message):
     return deconnexion, isconnected, message
 
 def creerRobot(sock_client, ligne, colonne, pseudo, isconnected, isCreateRobot, carteInfo, score, enPause, message):
-    requete = re.compile(r"^(?P<coord>\s[0-9\s0-9])?")
-    coordonnee = ligne + colonne
-    matchReq = re.match(requete,coordonnee)
     coordonnee = (int(ligne),int(colonne))
+    if (int(ligne) > 5 or int(colonne )> 5 or int(ligne) < 0 or int(colonne) < 0):
+        answer = "407"
+        message += answer
 
-    if isconnected == False:
+    elif isconnected == False:
         answer = "401" #ERR_NOTCONNECTED The client is not connected
         message += answer
-
-    elif (matchReq is None):
-        answer = "407" #ERR_SQUARENOTFOUND : The square does not exist
-        message += answer
+        isCreateRobot = False
+        enPause = True
 
     else:
         if isconnected == True:
@@ -230,28 +247,6 @@ def bougerRobot(sock_client, variable, variable2, isconnected, isCreateRobot, ps
             message += answer
         print(carteInfo)
     return message
-
-def pauseRobot(sock_client, isconnected, enPause, pseudo, isCreateRobot, message):
-    if isCreateRobot == False:
-        answer = "409" #ROBOT_DESACTIVED : The robot it's not created
-        message += answer
-
-    elif enPause == True:
-        answer = "402" #ERR_BADSTATUS : The robot was not away
-        message += answer
-
-    elif isconnected == False:
-        answer = "401" #ERR_NOTCONNECTED : The client is not connected
-        message += answer
-    
-    else:
-        answer = "200" #RPL_DONE : Success
-        informationClient = "*" + pseudo + " PAUSE"
-        message += answer+'\n'+informationClient
-        enPause = True
-        
-
-    return enPause, message
 
 def retirerPauseRobot(sock_client, isconnected, isCreateRobot, enPause, pseudo, message):
 
@@ -341,7 +336,7 @@ while True:
     try:
         sock_client, adr_client = socket_server.accept()
         print("Connection de : "+adr_client[0])
-        threading.Thread(target=traiter_client, args=(sock_client,)).start()
+        threading.Thread(target=traiter_client, args=(sock_client, adr_client)).start()
     except KeyboardInterrupt:
         break
 
